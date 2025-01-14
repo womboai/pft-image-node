@@ -40,9 +40,8 @@ class ImageResponseGenerator(ResponseGenerator):
 
         # TODO: remove this
         logger.debug(f"RECEIVED MEMO DATA: {request_tx.memo_data}")
-        prompt = self._extract_prompt(request_tx.memo_data)
 
-        if prompt is None:
+        if request_tx.memo_data.strip() == "":
             logger.debug("No memo_data was provided")
             return {"ipfs_hash": None}
 
@@ -51,7 +50,7 @@ class ImageResponseGenerator(ResponseGenerator):
             result = await fal_client.subscribe_async(
                 "fal-ai/flux/dev",
                 arguments={
-                    "prompt": prompt,
+                    "prompt": request_tx.memo_data,
                     "image_size": "square",
                     "num_images": 1,
                 },
@@ -74,11 +73,6 @@ class ImageResponseGenerator(ResponseGenerator):
             logger.error(f"Failed to generate image with error: {e}")
             return {"ipfs_hash": None}
 
-    def _extract_prompt(self, memo_data: str) -> str | None:
-        if memo_data.upper().startswith(TaskType.IMAGE_GEN.value):
-            return memo_data[len(TaskType.IMAGE_GEN.value) :].strip()
-        return None
-
     async def construct_response(
         self, request_tx: MemoTransaction, evaluation_result: Dict[str, Any]
     ) -> MemoConstructionParameters:
@@ -93,9 +87,7 @@ class ImageResponseGenerator(ResponseGenerator):
 
             logger.debug(f"Constructing response with ipfs hash: {ipfs_hash}")
 
-            response_string = (
-                TaskType.IMAGE_GEN_RESPONSE.value + " ipfs hash: " + ipfs_hash
-            )
+            response_string = "ipfs hash: " + ipfs_hash
 
             logger.debug(f"Constructed response string: {response_string}")
 
