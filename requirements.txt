@@ -1,4 +1,4 @@
-git+https://github.com/postfiatorg/nodetools.git@async#egg=nodetools
+git+https://github.com/postfiatorg/nodetools.git@memo_construction#egg=nodetools
 requests
 discord
 loguru

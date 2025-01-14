@@ -10,5 +10,5 @@ DISCORD_SUPER_USER_IDS = [427471329365590017, 149706927868215297]
 class TaskType(Enum):
     """Task-related memo types for workflow management"""
 
-    IMAGE_GEN = "GENERATE IMAGE ___"
-    IMAGE_GEN_RESPONSE = "IMAGE RESPONSE ___"
+    IMAGE_GEN = "GENERATE_IMAGE"
+    IMAGE_GEN_RESPONSE = "IMAGE_RESPONSE"
