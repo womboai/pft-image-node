@@ -64,7 +64,7 @@ class ImageGenRule(RequestRule):
         params = {
             "account": request_tx.account,
             "destination": request_tx.destination,
-            "request_time": request_tx.datetime.strftime("%Y-%m-%d %H:%M:%S"),
+            "request_time": request_tx.datetime,
             "response_memo_type": response_memo_type,
         }
 
