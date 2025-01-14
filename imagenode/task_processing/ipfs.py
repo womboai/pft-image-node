@@ -1,9 +1,18 @@
+from dataclasses import dataclass
 import requests
 from io import BytesIO
 import os
 
 
-def pin_by_url(url: str, file_name: str, group_id: str | None = None):
+@dataclass
+class IpfsPinFileRes:
+    IpfsHash: str
+    PinSize: int
+    Timestamp: str
+    isDuplicate: bool | None = None
+
+
+def pin_by_url(url: str, file_name: str, group_id: str | None = None) -> IpfsPinFileRes:
     response = requests.get(url)
     response.raise_for_status()
 
@@ -25,5 +34,4 @@ def pin_by_url(url: str, file_name: str, group_id: str | None = None):
         data=data,
     )
     upload_response.raise_for_status()
-
-    return upload_response.json()
+    return IpfsPinFileRes(**upload_response.json())

@@ -10,6 +10,7 @@ import signal
 # third party imports
 import discord
 from discord import Object, Interaction, app_commands
+from discord.abc import Messageable
 from loguru import logger
 
 # nodetools imports
@@ -74,7 +75,10 @@ class ImageNodeDiscordBot(discord.Client):
     async def setup_hook(self):
         """Sets up the slash commands for the bot and initiates background tasks."""
         guild_id = self.node_config.discord_guild_id
-        guild = Object(id=guild_id)
+        guild: None | Object = None
+
+        if guild_id is not None:
+            guild = Object(id=guild_id)
 
         self.bg_task = self.loop.create_task(
             self.transaction_notifier(), name="DiscordBotTransactionNotifier"
@@ -117,11 +121,17 @@ class ImageNodeDiscordBot(discord.Client):
             # Generate the wallet
             new_wallet = Wallet.create()
 
+            if new_wallet.seed is None:
+                await interaction.response.send_message(
+                    "An error occurred while generating the wallet. Please try again later.",
+                    ephemeral=True,
+                )
+                return
             # Create the modal with the client reference and send it
             modal = WalletInfoModal(
                 classic_address=new_wallet.classic_address,
                 wallet_seed=new_wallet.seed,
-                client=interaction.client,
+                client=self,
             )
             await interaction.response.send_modal(modal)
 
@@ -207,7 +217,7 @@ We recommend funding with a bit more to cover ongoing transaction fees.
 
                 # Get recent messages
                 incoming_messages, outgoing_messages = (
-                    await self.generic_pft_utilities.get_recent_messages(wallet_address)
+                    await self.generic_pft_utilities.get_recent_messages(wallet_address)  # type: ignore
                 )
 
                 # Split long strings if they exceed Discord's limit
@@ -397,7 +407,7 @@ We recommend funding with a bit more to cover ongoing transaction fees.
 
     async def on_ready(self):
         logger.debug(
-            f"ImageNodeDiscordBot.on_ready: Logged in as {self.user} (ID: {self.user.id})"
+            f"ImageNodeDiscordBot.on_ready: Logged in as {self.user} (ID: {self.user.id if self.user is not None else "Unknown"})"
         )
         logger.debug("ImageNodeDiscordBot.on_ready: ------------------------------")
         logger.debug("ImageNodeDiscordBot.on_ready: Connected to the following guilds:")
@@ -406,13 +416,23 @@ We recommend funding with a bit more to cover ongoing transaction fees.
 
     async def transaction_notifier(self):
         await self.wait_until_ready()
+        if self.node_config.discord_activity_channel_id is None:
+            logger.warning(
+                "The discord activity channel id was not set in node config. Transaction notifier is disabled."
+            )
+            return
+
         channel = self.get_channel(self.node_config.discord_activity_channel_id)
 
         if not channel:
             logger.error(
-                f"ImageNodeDiscordBot.transaction_notifier: Channel with ID "
+                f"nftnodeDiscordBot.transaction_notifier: Channel with ID "
                 f"{self.node_config.discord_activity_channel_id} not found"
             )
+            return
+
+        if not isinstance(channel, Messageable):
+            logger.error(f"Channel with ID {channel.id} is a non-messageable channel")
             return
 
         while not self.is_closed():
@@ -471,10 +491,10 @@ We recommend funding with a bit more to cover ongoing transaction fees.
 
         # Get balances
         try:
-            account_info.xrp_balance = (
+            account_info.xrp_balance = float(
                 await self.generic_pft_utilities.fetch_xrp_balance(address)
             )
-            account_info.pft_balance = (
+            account_info.pft_balance = float(
                 await self.generic_pft_utilities.fetch_pft_balance(address)
             )
         except Exception as e:
@@ -494,7 +514,7 @@ We recommend funding with a bit more to cover ongoing transaction fees.
 
                 # Likely username
                 outgoing_memo_format = list(
-                    memo_history[memo_history["direction"] == "OUTGOING"][
+                    memo_history.loc[memo_history["direction"] == "OUTGOING"][
                         "memo_format"
                     ].mode()
                 )
@@ -536,6 +556,8 @@ def main():
         log_filename="nodetools.log",
         level="DEBUG",
     )
+
+    nodetools: None | ServiceContainer = None
 
     try:
         # Initialize performance monitor
@@ -596,7 +618,7 @@ def main():
     except Exception as e:
         logger.error(f"Fatal error: {e}")
         logger.error(traceback.format_exc())
-        if nodetools.running:
+        if nodetools is not None and nodetools.running:
             logger.info("\nShutting down gracefully...")
             try:
                 # Clean up transaction orchestrator tasks
