@@ -3,12 +3,6 @@
 ##########################################################################
 
 from nodetools.configuration.constants import UNIQUE_ID_PATTERN_V1
-from imagenode.task_processing.patterns import TASK_ID_PATTERN
-
-
-def is_valid_task_id(memo_type: str) -> bool:
-    """Check if a memo type is a valid task ID"""
-    return bool(TASK_ID_PATTERN.match(memo_type)) if memo_type else False
 
 
 def derive_response_memo_type(request_memo_type: str, response_memo_type: str) -> str:

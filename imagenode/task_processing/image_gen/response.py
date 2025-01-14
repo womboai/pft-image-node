@@ -89,8 +89,6 @@ class ImageResponseGenerator(ResponseGenerator):
 
             response_string = "ipfs hash: " + ipfs_hash
 
-            logger.debug(f"Constructed response string: {response_string}")
-
             response_memo_type = derive_response_memo_type(
                 request_memo_type=request_tx.memo_type,
                 response_memo_type=TaskType.IMAGE_GEN_RESPONSE.value,
