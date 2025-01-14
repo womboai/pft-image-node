@@ -31,16 +31,12 @@ class ImageResponseGenerator(ResponseGenerator):
         node_config: NodeConfig,
         generic_pft_utilities: GenericPFTUtilities,
     ):
-        self.node_config = node_config
-        self.generic_pft_utilities = generic_pft_utilities
+        self._node_config = node_config
+        self._generic_pft_utilities = generic_pft_utilities
 
     async def evaluate_request(self, request_tx: MemoTransaction) -> Dict[str, Any]:
         """Evaluate image generation request"""
-        logger.debug("Evaluating image generation request...")
-
-        # TODO: remove this
-        logger.debug(f"RECEIVED MEMO DATA: {request_tx.memo_data}")
-
+        logger.info("Evaluating image generation request...")
         if request_tx.memo_data.strip() == "":
             logger.debug("No memo_data was provided")
             return {"ipfs_hash": None}
@@ -64,10 +60,12 @@ class ImageResponseGenerator(ResponseGenerator):
                 request_tx.get("hash") or "unknown_tx",
                 os.getenv("PINATA_GROUP_ID"),
             )
-            ipfs_hash = data["IpfsHash"]
 
+            logger.info(
+                f"Generated image and pinned to ipfs at hash: {request_tx.hash}"
+            )
             return {
-                "ipfs_hash": ipfs_hash,
+                "ipfs_hash": data.IpfsHash,
             }
         except Exception as e:
             logger.error(f"Failed to generate image with error: {e}")
@@ -78,7 +76,7 @@ class ImageResponseGenerator(ResponseGenerator):
     ) -> MemoConstructionParameters:
         """Construct image response parameters"""
 
-        logger.debug("Constructing image generation response...")
+        logger.info("Constructing image generation response...")
         try:
             ipfs_hash = evaluation_result["ipfs_hash"]
 
@@ -95,7 +93,7 @@ class ImageResponseGenerator(ResponseGenerator):
             )
 
             memo = MemoConstructionParameters.construct_standardized_memo(
-                source=self.node_config.node_name,
+                source=self._node_config.node_name,
                 destination=request_tx.account,
                 memo_data=response_string,
                 memo_type=response_memo_type,
