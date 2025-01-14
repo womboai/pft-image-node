@@ -430,7 +430,7 @@ We recommend funding with a bit more to cover ongoing transaction fees.
     def parse_possible_image(self, tx: Dict[str, Any]) -> str:
         hash: str | None = None
         # NOTE: this is highly dependent on the IMAGE RESPONSE format
-        if TaskType.IMAGE_GEN_RESPONSE.value in tx["memo_data"]:
+        if TaskType.IMAGE_GEN_RESPONSE.value in tx["memo_type"]:
             hash = tx["memo_data"].split("ipfs hash: ")[1].strip("`")
 
         image_string = (

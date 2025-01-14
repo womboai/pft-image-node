@@ -1,12 +1,13 @@
-from datetime import datetime
 import discord
-from nodetools.protocols.generic_pft_utilities import GenericPFTUtilities
+from nodetools.models.memo_processor import generate_custom_id
+from nodetools.protocols.generic_pft_utilities import GenericPFTUtilities, Response
 from decimal import Decimal
 from xrpl.wallet import Wallet
 from typing import TYPE_CHECKING
 from loguru import logger
 from imagenode.task_processing.constants import (
     IMAGE_GEN_COST,
+    TaskType,
 )
 import nodetools.configuration.constants as global_constants
 import traceback
@@ -114,30 +115,26 @@ class PFTImageGenModal(
         destination_address = self.generic_pft_utilities.node_config.node_address
         prompt = self.prompt.value
 
-        formatted_datetime = datetime.now().strftime("%Y-%m-%d_%H:%M")
-        # construct memo
-        memo = self.generic_pft_utilities.construct_memo(
-            memo_data="GENERATE IMAGE ___ " + prompt,
-            memo_type=f"{formatted_datetime}__IMAGEGEN",
-            memo_format=interaction.user.name,
-        )
-
         try:
+            request_id = generate_custom_id()
             response = await self.generic_pft_utilities.send_memo(
                 wallet_seed_or_wallet=self.wallet,
                 destination=destination_address,
-                memo=memo,
-                username=interaction.user.name,
+                memo_data=prompt,
+                memo_type=request_id + "__" + TaskType.IMAGE_GEN.value,
                 pft_amount=Decimal(str(IMAGE_GEN_COST)),
             )
 
             if not self.generic_pft_utilities.verify_transaction_response(response):
-                raise Exception(f"Failed to send PFT transaction: {response.result}")
+                if isinstance(response, Response):
+                    raise Exception(
+                        f"Failed to send PFT transaction: {response.result}"
+                    )
+
+                raise Exception(f"Failed to send PFT transaction: {response}")
 
             # extract response from last memo
-            tx_info = self.generic_pft_utilities.extract_transaction_info_from_response_object(
-                response
-            )[
+            tx_info = self.generic_pft_utilities.extract_transaction_info(response)[
                 "clean_string"
             ]
 

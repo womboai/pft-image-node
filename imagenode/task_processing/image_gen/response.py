@@ -6,8 +6,9 @@ from typing import Dict, Any
 from loguru import logger
 
 from nodetools.models.models import (
+    MemoConstructionParameters,
+    MemoTransaction,
     ResponseGenerator,
-    ResponseParameters,
 )
 
 # Task node imports
@@ -21,6 +22,7 @@ from nodetools.protocols.generic_pft_utilities import GenericPFTUtilities
 import fal_client
 
 from imagenode.task_processing.ipfs import pin_by_url
+from imagenode.task_processing.utils import derive_response_memo_type
 
 
 class ImageResponseGenerator(ResponseGenerator):
@@ -32,14 +34,14 @@ class ImageResponseGenerator(ResponseGenerator):
         self.node_config = node_config
         self.generic_pft_utilities = generic_pft_utilities
 
-    async def evaluate_request(self, request_tx: Dict[str, Any]) -> Dict[str, Any]:
+    async def evaluate_request(self, request_tx: MemoTransaction) -> Dict[str, Any]:
         """Evaluate image generation request"""
         logger.debug("Evaluating image generation request...")
-        request_text = request_tx.get("memo_data")
 
-        prompt = self._extract_prompt(request_text or "")
+        # TODO: remove this
+        logger.debug(f"RECEIVED MEMO DATA: {request_tx.memo_data}")
 
-        if request_text is None or prompt is None:
+        if request_tx.memo_data.strip() == "":
             logger.debug("No memo_data was provided")
             return {"ipfs_hash": None}
 
@@ -48,7 +50,7 @@ class ImageResponseGenerator(ResponseGenerator):
             result = await fal_client.subscribe_async(
                 "fal-ai/flux/dev",
                 arguments={
-                    "prompt": prompt,
+                    "prompt": request_tx.memo_data,
                     "image_size": "square",
                     "num_images": 1,
                 },
@@ -71,15 +73,9 @@ class ImageResponseGenerator(ResponseGenerator):
             logger.error(f"Failed to generate image with error: {e}")
             return {"ipfs_hash": None}
 
-    def _extract_prompt(self, memo_data: str) -> str | None:
-        prefix = "GENERATE IMAGE ___"
-        if memo_data.startswith(prefix):
-            return memo_data[len(prefix) :].strip()
-        return None
-
     async def construct_response(
-        self, request_tx: Dict[str, Any], evaluation_result: Dict[str, Any]
-    ) -> ResponseParameters:
+        self, request_tx: MemoTransaction, evaluation_result: Dict[str, Any]
+    ) -> MemoConstructionParameters:
         """Construct image response parameters"""
 
         logger.debug("Constructing image generation response...")
@@ -91,22 +87,20 @@ class ImageResponseGenerator(ResponseGenerator):
 
             logger.debug(f"Constructing response with ipfs hash: {ipfs_hash}")
 
-            response_string = (
-                TaskType.IMAGE_GEN_RESPONSE.value + " ipfs hash: " + ipfs_hash
+            response_string = "ipfs hash: " + ipfs_hash
+
+            response_memo_type = derive_response_memo_type(
+                request_memo_type=request_tx.memo_type,
+                response_memo_type=TaskType.IMAGE_GEN_RESPONSE.value,
             )
 
-            logger.debug(f"Constructed response string: {response_string}")
-
-            memo = self.generic_pft_utilities.construct_memo(
-                memo_data=response_string,
-                memo_format=self.node_config.node_name,
-                memo_type=request_tx["memo_type"],
-            )
-
-            return ResponseParameters(
+            memo = MemoConstructionParameters.construct_standardized_memo(
                 source=self.node_config.node_name,
-                memo=memo,
-                destination=request_tx["account"],
+                destination=request_tx.account,
+                memo_data=response_string,
+                memo_type=response_memo_type,
             )
+
+            return memo
         except Exception as e:
             raise Exception(f"Failed to construct image generation response: {e}")
