@@ -1,8 +1,5 @@
 # Standard library imports
-from typing import Dict, Any, Optional
-
-# Third-party imports
-from loguru import logger
+from typing import Optional
 
 # NodeTools imports
 from nodetools.models.models import (
@@ -34,9 +31,13 @@ class ImageGenRule(RequestRule):
         2. Must have sent 1 PFT
         """
         if tx.destination != dependencies.node_config.node_address:
-            return ValidationResult(valid=False)
+            return ValidationResult(
+                valid=False, notes=f"wrong destination address {tx.destination}"
+            )
         if tx.pft_amount < IMAGE_GEN_COST:
-            return ValidationResult(valid=False)
+            return ValidationResult(
+                valid=False, notes=f"insufficient PFT amount: {tx.pft_amount}"
+            )
 
         return ValidationResult(valid=True)
 
@@ -51,7 +52,6 @@ class ImageGenRule(RequestRule):
                 request_destination := %(destination)s,
                 request_time := %(request_time)s,
                 response_memo_type := %(response_memo_type)s,
-                response_memo_data := %(response_memo_data)s,
                 require_after_request := TRUE
             );
         """
@@ -64,7 +64,7 @@ class ImageGenRule(RequestRule):
         params = {
             "account": request_tx.account,
             "destination": request_tx.destination,
-            "request_time": request_tx.datetime,
+            "request_time": request_tx.datetime.strftime("%Y-%m-%d %H:%M:%S"),
             "response_memo_type": response_memo_type,
         }
 
